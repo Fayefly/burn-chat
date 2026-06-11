@@ -18,11 +18,31 @@ const rooms = new Map();
 const BURN_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const RECONNECT_GRACE = 60 * 1000; // 60 seconds grace period for reconnect
 
+// Chinese idioms for room naming
+const IDIOMS = [
+  '风花雪月', '高山流水', '天涯若邻', '一见如故', '心有灵犀',
+  '萍水相逢', '推心置腹', '莫逆之交', '金兰之契', '惺惺相惜',
+  '把酒言欢', '促膝长谈', '肝胆相照', '志同道合', '相见恨晚',
+  '情投意合', '意气相投', '同气连枝', '患难与共', '风雨同舟',
+  '星夜密语', '月下对酌', '灯下闲谈', '围炉夜话', '枕月而眠',
+  '浮生半日', '偷得清闲', '忙里偷闲', '且听风吟', '岁月静好'
+];
+
+function generateRoomId() {
+  const idiom = IDIOMS[Math.floor(Math.random() * IDIOMS.length)];
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return idiom + code;
+}
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Create a new room
 app.get('/api/create-room', (req, res) => {
-  const roomId = uuidv4().slice(0, 8);
+  const roomId = generateRoomId();
   rooms.set(roomId, {
     id: roomId,
     users: [],
@@ -60,6 +80,16 @@ app.get('/api/room/:id', (req, res) => {
 // Serve the SPA for room URLs
 app.get('/room/:id', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Also handle the short URL redirect: /c/roomId
+app.get('/c/:id', (req, res) => {
+  const roomId = decodeURIComponent(req.params.id);
+  const room = rooms.get(roomId);
+  if (!room || room.burned) {
+    return res.redirect('/');
+  }
+  res.redirect(`/room/${encodeURIComponent(roomId)}`);
 });
 
 function burnRoom(roomId) {

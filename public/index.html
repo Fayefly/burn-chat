@@ -498,9 +498,9 @@
     let pendingRoomId = null;
 
     // Check if URL has a room — show nickname modal
-    const pathMatch = window.location.pathname.match(/^\/room\/([a-z0-9]+)$/i);
+    const pathMatch = window.location.pathname.match(/^\/room\/(.+)$/i);
     if (pathMatch) {
-      pendingRoomId = pathMatch[1];
+      pendingRoomId = decodeURIComponent(pathMatch[1]);
       document.getElementById('nickname-overlay').classList.add('active');
     }
 
@@ -538,9 +538,10 @@
       const res = await fetch('/api/create-room');
       const { roomId } = await res.json();
       currentRoomId = roomId;
-      history.pushState(null, '', `/room/${roomId}`);
+      const encodedId = encodeURIComponent(roomId);
+      history.pushState(null, '', `/room/${encodedId}`);
       // Show share banner in chat
-      const link = `${window.location.origin}/room/${roomId}`;
+      const link = `${window.location.origin}/room/${encodedId}`;
       document.getElementById('share-banner-link').textContent = link;
       document.getElementById('share-banner').classList.add('active');
       joinRoom(roomId);
@@ -555,6 +556,8 @@
       myNickname = name;
       document.getElementById('nickname-overlay').classList.remove('active');
       currentRoomId = pendingRoomId;
+      const encodedId = encodeURIComponent(pendingRoomId);
+      history.replaceState(null, '', `/room/${encodedId}`);
       joinRoom(pendingRoomId);
     }
 
@@ -568,8 +571,8 @@
 
     function joinRoom(roomId) {
       showScreen('chat-screen');
-      document.getElementById('display-room-id').textContent = `#${roomId}`;
-      myNickname = getNickname();
+      document.getElementById('display-room-id').textContent = roomId;
+      if (!myNickname) myNickname = getNickname();
       socket.emit('join-room', { roomId, name: myNickname });
     }
 

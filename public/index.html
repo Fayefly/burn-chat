@@ -330,48 +330,79 @@
       font-size: 14px;
     }
 
-    /* ============ Share modal ============ */
-    .share-overlay {
+    /* ============ Nickname Modal ============ */
+    .nickname-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.75);
-      z-index: 100;
+      background: var(--bg);
+      z-index: 200;
       align-items: center;
       justify-content: center;
       padding: 24px;
     }
 
-    .share-overlay.active { display: flex; }
+    .nickname-overlay.active { display: flex; }
 
-    .share-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 28px;
-      max-width: 380px;
-      width: 100%;
+    .nickname-box {
       text-align: center;
+      max-width: 320px;
+      width: 100%;
     }
 
-    .share-box h3 { margin-bottom: 12px; font-size: 18px; }
-
-    .share-link {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 14px;
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-size: 13px;
-      word-break: break-all;
-      margin: 14px 0;
-      color: var(--text);
+    .nickname-box h2 {
+      font-size: 22px;
+      margin-bottom: 6px;
     }
 
-    .share-hint {
+    .nickname-box p {
       color: var(--text-dim);
-      font-size: 12px;
-      margin-top: 10px;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .nickname-box input {
+      width: 100%;
+      margin-bottom: 14px;
+    }
+
+    /* ============ Share Banner ============ */
+    .share-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .share-banner.active { display: flex; }
+
+    .share-banner-text {
+      color: var(--text-secondary);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      margin-right: 10px;
+    }
+
+    .share-banner-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 14px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .share-banner-btn:hover {
+      border-color: var(--text-dim);
+      color: var(--text);
     }
 
     /* ============ Waiting ============ */
@@ -415,6 +446,10 @@
           <span id="countdown-text">等待第一条消息...</span>
         </div>
       </div>
+      <div class="share-banner" id="share-banner">
+        <span class="share-banner-text" id="share-banner-link"></span>
+        <button class="share-banner-btn" onclick="copyLink()">复制链接</button>
+      </div>
       <div class="messages" id="messages">
         <div class="waiting-text" id="waiting-hint">等待对方加入...</div>
       </div>
@@ -437,14 +472,13 @@
     <button class="btn" style="max-width:200px; margin-top:20px;" onclick="goHome()">返回首页</button>
   </div>
 
-  <!-- Share Overlay -->
-  <div class="share-overlay" id="share-overlay">
-    <div class="share-box">
-      <h3>分享房间链接</h3>
-      <p style="color:var(--text-dim); font-size:13px;">将链接发给对方即可开始对话</p>
-      <div class="share-link" id="share-link"></div>
-      <button class="btn" onclick="copyLink()">复制链接</button>
-      <p class="share-hint">对方加入后即可聊天，30分钟后自动焚毁</p>
+  <!-- Nickname Modal -->
+  <div class="nickname-overlay" id="nickname-overlay">
+    <div class="nickname-box">
+      <h2>加入聊天</h2>
+      <p>输入你的昵称开始对话</p>
+      <input id="link-nickname-input" type="text" placeholder="你的昵称" maxlength="12">
+      <button class="btn" onclick="joinFromLink()">进入房间</button>
     </div>
   </div>
 
@@ -461,13 +495,19 @@
     let countdownEnd = null;
     let myNickname = '';
     let wasConnected = false;
+    let pendingRoomId = null;
 
-    // Check if URL has a room
+    // Check if URL has a room — show nickname modal
     const pathMatch = window.location.pathname.match(/^\/room\/([a-z0-9]+)$/i);
     if (pathMatch) {
-      const roomId = pathMatch[1];
-      document.getElementById('room-input').value = roomId;
+      pendingRoomId = pathMatch[1];
+      document.getElementById('nickname-overlay').classList.add('active');
     }
+
+    // Enter key on nickname input
+    document.getElementById('link-nickname-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') joinFromLink();
+    });
 
     socket.on('connect', () => {
       // If we were previously in a room, try to rejoin
@@ -499,10 +539,23 @@
       const { roomId } = await res.json();
       currentRoomId = roomId;
       history.pushState(null, '', `/room/${roomId}`);
+      // Show share banner in chat
       const link = `${window.location.origin}/room/${roomId}`;
-      document.getElementById('share-link').textContent = link;
-      document.getElementById('share-overlay').classList.add('active');
+      document.getElementById('share-banner-link').textContent = link;
+      document.getElementById('share-banner').classList.add('active');
       joinRoom(roomId);
+    }
+
+    function joinFromLink() {
+      const name = document.getElementById('link-nickname-input').value.trim();
+      if (!name) {
+        document.getElementById('link-nickname-input').focus();
+        return;
+      }
+      myNickname = name;
+      document.getElementById('nickname-overlay').classList.remove('active');
+      currentRoomId = pendingRoomId;
+      joinRoom(pendingRoomId);
     }
 
     function joinExistingRoom() {
@@ -521,9 +574,9 @@
     }
 
     function copyLink() {
-      const link = document.getElementById('share-link').textContent;
+      const link = document.getElementById('share-banner-link').textContent;
       navigator.clipboard.writeText(link).then(() => {
-        const btn = document.querySelector('.share-box .btn');
+        const btn = document.querySelector('.share-banner-btn');
         btn.textContent = '已复制 ✓';
         setTimeout(() => { btn.textContent = '复制链接'; }, 2000);
       });
@@ -547,7 +600,7 @@
       addSystemMessage(`${name} 加入了房间`);
       if (userCount >= 2) {
         document.getElementById('waiting-hint').style.display = 'none';
-        document.getElementById('share-overlay').classList.remove('active');
+        document.getElementById('share-banner').classList.remove('active');
       }
     });
 
@@ -563,7 +616,7 @@
       addSystemMessage(`${name} 已重新连接`);
       if (userCount >= 2) {
         document.getElementById('waiting-hint').style.display = 'none';
-        document.getElementById('share-overlay').classList.remove('active');
+        document.getElementById('share-banner').classList.remove('active');
       }
     });
 

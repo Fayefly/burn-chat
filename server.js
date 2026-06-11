@@ -7,13 +7,16 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: { origin: '*' },
+  pingInterval: 15000,
+  pingTimeout: 10000
 });
 
 // In-memory room storage
 const rooms = new Map();
 
 const BURN_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const RECONNECT_GRACE = 60 * 1000; // 60 seconds grace period for reconnect
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -41,8 +44,8 @@ app.get('/api/room/:id', (req, res) => {
   if (room.burned) {
     return res.json({ exists: false, burned: true });
   }
-  const userCount = room.users.length;
-  if (userCount >= 2) {
+  const activeUsers = room.users.filter(u => !u.disconnected);
+  if (activeUsers.length >= 2) {
     return res.json({ exists: true, full: true });
   }
   res.json({
@@ -66,6 +69,11 @@ function burnRoom(roomId) {
   room.burned = true;
   room.messages = [];
 
+  // Clear any pending disconnect timers
+  room.users.forEach(u => {
+    if (u.disconnectTimer) clearTimeout(u.disconnectTimer);
+  });
+
   // Notify all users
   io.to(roomId).emit('room-burned');
 
@@ -78,30 +86,88 @@ function burnRoom(roomId) {
   }, 5000);
 }
 
+// Track userId -> socket mapping for reconnection
+const userSockets = new Map(); // userId -> { roomId, nickname, socketId }
+
 io.on('connection', (socket) => {
   let currentRoom = null;
   let nickname = null;
+  let userId = null;
 
-  socket.on('join-room', ({ roomId, name }) => {
+  socket.on('join-room', ({ roomId, name, reconnectUserId }) => {
     const room = rooms.get(roomId);
     if (!room || room.burned) {
       socket.emit('error-msg', { message: '房间已焚毁或不存在' });
       return;
     }
-    if (room.users.length >= 2) {
+
+    // Check if this is a reconnection
+    if (reconnectUserId) {
+      const existingUser = room.users.find(u => u.userId === reconnectUserId);
+      if (existingUser && existingUser.disconnected) {
+        // Reconnection! Cancel the disconnect timer
+        if (existingUser.disconnectTimer) {
+          clearTimeout(existingUser.disconnectTimer);
+          existingUser.disconnectTimer = null;
+        }
+        existingUser.disconnected = false;
+        existingUser.socketId = socket.id;
+
+        currentRoom = roomId;
+        nickname = existingUser.name;
+        userId = reconnectUserId;
+
+        socket.join(roomId);
+
+        // Notify others that user is back
+        io.to(roomId).emit('user-reconnected', {
+          name: nickname,
+          userCount: room.users.filter(u => !u.disconnected).length
+        });
+
+        // Send message history for reconnecting user
+        if (room.firstMessageAt) {
+          const remaining = Math.max(0, BURN_TIMEOUT - (Date.now() - room.firstMessageAt));
+          socket.emit('countdown-sync', { remaining });
+        }
+
+        // Store mapping
+        userSockets.set(userId, { roomId, nickname, socketId: socket.id });
+
+        return;
+      }
+    }
+
+    // Count active (non-disconnected) users
+    const activeUsers = room.users.filter(u => !u.disconnected);
+    if (activeUsers.length >= 2) {
       socket.emit('error-msg', { message: '房间已满（最多2人）' });
       return;
     }
 
+    // New user
     currentRoom = roomId;
     nickname = name || '匿名';
-    room.users.push({ id: socket.id, name: nickname });
+    userId = uuidv4();
+
+    const userData = {
+      userId,
+      socketId: socket.id,
+      name: nickname,
+      disconnected: false,
+      disconnectTimer: null
+    };
+
+    room.users.push(userData);
     socket.join(roomId);
+
+    // Tell this user their userId for reconnection
+    socket.emit('your-user-id', { userId });
 
     // Notify the room
     io.to(roomId).emit('user-joined', {
       name: nickname,
-      userCount: room.users.length
+      userCount: room.users.filter(u => !u.disconnected).length
     });
 
     // Send current countdown if active
@@ -109,6 +175,9 @@ io.on('connection', (socket) => {
       const remaining = Math.max(0, BURN_TIMEOUT - (Date.now() - room.firstMessageAt));
       socket.emit('countdown-sync', { remaining });
     }
+
+    // Store mapping
+    userSockets.set(userId, { roomId, nickname, socketId: socket.id });
   });
 
   socket.on('send-message', ({ text }) => {
@@ -119,7 +188,7 @@ io.on('connection', (socket) => {
     const msg = {
       id: uuidv4(),
       sender: nickname,
-      senderId: socket.id,
+      senderId: userId,
       text,
       timestamp: Date.now()
     };
@@ -136,15 +205,33 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    if (!currentRoom) return;
+    if (!currentRoom || !userId) return;
     const room = rooms.get(currentRoom);
     if (!room) return;
 
-    room.users = room.users.filter(u => u.id !== socket.id);
-    io.to(currentRoom).emit('user-left', {
-      name: nickname,
-      userCount: room.users.length
+    const userData = room.users.find(u => u.userId === userId);
+    if (!userData) return;
+
+    // Mark as disconnected but DON'T remove yet
+    userData.disconnected = true;
+
+    // Set a grace period timer
+    userData.disconnectTimer = setTimeout(() => {
+      // User didn't reconnect in time, actually remove them
+      room.users = room.users.filter(u => u.userId !== userId);
+      io.to(currentRoom).emit('user-left', {
+        name: nickname,
+        userCount: room.users.filter(u => !u.disconnected).length
+      });
+      userSockets.delete(userId);
+    }, RECONNECT_GRACE);
+
+    // Notify others that user is temporarily disconnected
+    io.to(currentRoom).emit('user-disconnected', {
+      name: nickname
     });
+
+    userSockets.delete(userId);
   });
 });
 

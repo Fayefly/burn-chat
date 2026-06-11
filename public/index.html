@@ -449,12 +449,18 @@
   </div>
 
   <script>
-    const socket = io();
+    const socket = io({
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: 20
+    });
     let currentRoomId = null;
-    let mySocketId = null;
+    let myUserId = null;
     let countdownInterval = null;
     let countdownEnd = null;
     let myNickname = '';
+    let wasConnected = false;
 
     // Check if URL has a room
     const pathMatch = window.location.pathname.match(/^\/room\/([a-z0-9]+)$/i);
@@ -464,7 +470,19 @@
     }
 
     socket.on('connect', () => {
-      mySocketId = socket.id;
+      // If we were previously in a room, try to rejoin
+      if (currentRoomId && myUserId && wasConnected) {
+        socket.emit('join-room', {
+          roomId: currentRoomId,
+          name: myNickname,
+          reconnectUserId: myUserId
+        });
+      }
+    });
+
+    socket.on('your-user-id', ({ userId }) => {
+      myUserId = userId;
+      wasConnected = true;
     });
 
     function showScreen(id) {
@@ -537,8 +555,20 @@
       addSystemMessage(`${name} 离开了房间`);
     });
 
+    socket.on('user-disconnected', ({ name }) => {
+      addSystemMessage(`${name} 网络断开，等待重连...`);
+    });
+
+    socket.on('user-reconnected', ({ name, userCount }) => {
+      addSystemMessage(`${name} 已重新连接`);
+      if (userCount >= 2) {
+        document.getElementById('waiting-hint').style.display = 'none';
+        document.getElementById('share-overlay').classList.remove('active');
+      }
+    });
+
     socket.on('new-message', (msg) => {
-      const isMine = msg.senderId === mySocketId;
+      const isMine = msg.senderId === myUserId;
       addMessage(msg.text, isMine, msg.sender);
     });
 

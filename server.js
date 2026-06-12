@@ -315,7 +315,8 @@ io.on('connection', (socket) => {
         if (supplement) {
           io.to(currentRoom).emit('ai-supplement', {
             forMessageId: msg.id,
-            text: supplement
+            text: supplement,
+            senderId: userId
           });
         }
       });

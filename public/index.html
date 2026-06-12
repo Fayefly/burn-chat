@@ -211,37 +211,13 @@
       word-wrap: break-word;
     }
 
-    /* AI Supplement */
+    /* AI Supplement — natural text continuation */
     .msg-supplement {
-      margin-top: 12px;
-      padding: 10px 14px;
-      background: linear-gradient(135deg, #f8f4ff 0%, #f0f8ff 100%);
-      border-left: 3px solid var(--purple-light);
-      border-radius: 0 12px 12px 0;
-      font-size: 13px;
-      line-height: 1.6;
-      color: #555;
-    }
-
-    .msg-supplement-label {
-      font-size: 11px;
-      color: var(--purple);
-      font-weight: 600;
-      margin-bottom: 4px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .msg-supplement-label::before {
-      content: '✨';
-    }
-
-    /* User message supplement */
-    .msg-user .msg-supplement {
       margin-top: 8px;
-      margin-left: auto;
-      max-width: 520px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #888;
+      font-style: italic;
     }
 
     /* AI message toolbar */
@@ -899,29 +875,21 @@
       addMessage(msg.text, isMine, msg.sender, msg.id, msg.image);
     });
 
-    socket.on('ai-supplement', ({ forMessageId, text }) => {
+    socket.on('ai-supplement', ({ forMessageId, text, senderId }) => {
+      // Only show supplement for the OTHER person's messages
+      if (senderId === myUserId) return;
+
       const msgEl = document.querySelector(`[data-msg-id="${forMessageId}"]`);
       if (!msgEl) return;
 
       const supplement = document.createElement('div');
       supplement.className = 'msg-supplement';
+      supplement.textContent = text;
 
-      const label = document.createElement('div');
-      label.className = 'msg-supplement-label';
-      label.textContent = 'AI 补充';
-
-      const content = document.createElement('div');
-      content.textContent = text;
-
-      supplement.appendChild(label);
-      supplement.appendChild(content);
-
-      // For AI messages, append to content area; for user messages, append directly
+      // For AI messages, append to content area
       const contentArea = msgEl.querySelector('.msg-ai-content');
       if (contentArea) {
         contentArea.appendChild(supplement);
-      } else {
-        msgEl.appendChild(supplement);
       }
 
       const area = document.querySelector('.messages-area');

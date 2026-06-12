@@ -106,7 +106,6 @@
     .topbar {
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px 20px;
-      border-bottom: 1px solid var(--border);
       background: var(--bg);
       position: relative; z-index: 10;
     }
@@ -338,7 +337,7 @@
       max-width: 780px;
       margin: 0 auto;
       background: var(--surface);
-      border: 1.5px solid var(--purple-light);
+      border: 1px solid var(--border);
       border-radius: 24px;
       padding: 14px 18px 10px;
       display: flex;
@@ -390,7 +389,7 @@
 
     .send-circle {
       width: 34px; height: 34px;
-      background: var(--purple-send);
+      background: var(--green);
       border: none;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
@@ -399,7 +398,7 @@
       color: white;
     }
 
-    .send-circle:hover { background: var(--purple-hover); transform: scale(1.05); }
+    .send-circle:hover { background: #0d8a6b; transform: scale(1.05); }
     .send-circle svg { width: 16px; height: 16px; }
 
     /* ============ Burned screen ============ */
@@ -542,7 +541,6 @@
       </div>
       <div class="topbar-right">
         <button class="topbar-btn" onclick="copyShareLink()">复制链接</button>
-        <button class="topbar-btn" id="open-infinite-btn">打开无限</button>
       </div>
     </div>
 

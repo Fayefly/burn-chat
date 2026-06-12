@@ -9,7 +9,8 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*' },
   pingInterval: 15000,
-  pingTimeout: 10000
+  pingTimeout: 10000,
+  maxHttpBufferSize: 5e6  // 5MB for image uploads
 });
 
 // In-memory room storage
@@ -277,16 +278,23 @@ io.on('connection', (socket) => {
     userSockets.set(userId, { roomId, nickname, socketId: socket.id });
   });
 
-  socket.on('send-message', ({ text }) => {
+  socket.on('send-message', ({ text, image }) => {
     if (!currentRoom) return;
     const room = rooms.get(currentRoom);
     if (!room || room.burned) return;
+
+    // Limit image size to 2MB base64
+    if (image && image.data && image.data.length > 2 * 1024 * 1024) {
+      socket.emit('error-msg', { message: '图片太大，请压缩后重试' });
+      return;
+    }
 
     const msg = {
       id: uuidv4(),
       sender: nickname,
       senderId: userId,
-      text,
+      text: text || '',
+      image: image || null,  // { data: 'base64...', mime: 'image/png' }
       timestamp: Date.now()
     };
     room.messages.push(msg);
@@ -300,9 +308,10 @@ io.on('connection', (socket) => {
 
     io.to(currentRoom).emit('new-message', msg);
 
-    // Generate AI supplement asynchronously
-    if (DEEPSEEK_API_KEY) {
-      getAISupplement(text, nickname).then(supplement => {
+    // Generate AI supplement asynchronously (text only)
+    if (DEEPSEEK_API_KEY && text) {
+      const contextMsg = image ? `${text}（附带了一张图片）` : text;
+      getAISupplement(contextMsg, nickname).then(supplement => {
         if (supplement) {
           io.to(currentRoom).emit('ai-supplement', {
             forMessageId: msg.id,

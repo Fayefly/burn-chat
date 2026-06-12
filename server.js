@@ -96,6 +96,15 @@ app.get('/api/create-room', (req, res) => {
   res.json({ roomId });
 });
 
+// Health check - shows if AI is configured
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    ai_enabled: !!OPENROUTER_API_KEY,
+    ai_model: AI_MODEL
+  });
+});
+
 // Check room status
 app.get('/api/room/:id', (req, res) => {
   const room = rooms.get(req.params.id);

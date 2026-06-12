@@ -20,7 +20,7 @@ const RECONNECT_GRACE = 60 * 1000; // 60 seconds grace period for reconnect
 
 // AI Supplement via OpenRouter (free models)
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const AI_MODEL = 'google/gemma-2-9b-it:free';
+const AI_MODEL = 'meta-llama/llama-3.2-3b-instruct:free';
 
 async function getAISupplement(messageText, senderName) {
   if (!OPENROUTER_API_KEY) return null;

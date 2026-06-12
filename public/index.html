@@ -883,7 +883,6 @@
 
       const supplement = document.createElement('div');
       supplement.className = 'msg-supplement';
-      supplement.textContent = text;
 
       // Insert supplement BEFORE the toolbar icons
       const contentArea = msgEl.querySelector('.msg-ai-content');
@@ -896,8 +895,22 @@
         }
       }
 
+      // Typewriter effect: reveal characters one by one
+      let charIndex = 0;
+      const totalChars = text.length;
       const area = document.querySelector('.messages-area');
-      area.scrollTop = area.scrollHeight;
+
+      function typeChar() {
+        if (charIndex < totalChars) {
+          // Add multiple characters at once for speed on longer texts
+          const chunk = Math.min(2, totalChars - charIndex);
+          supplement.textContent = text.substring(0, charIndex + chunk);
+          charIndex += chunk;
+          area.scrollTop = area.scrollHeight;
+          setTimeout(typeChar, 18);
+        }
+      }
+      typeChar();
     });
 
     socket.on('countdown-started', ({ duration }) => { startCountdown(duration); });

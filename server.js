@@ -117,8 +117,30 @@ app.get('/api/test-ai', async (req, res) => {
     return res.json({ error: 'OPENROUTER_API_KEY not set' });
   }
   try {
-    const result = await getAISupplement('你好', '测试');
-    res.json({ success: true, result: result });
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://chatburn.up.railway.app',
+        'X-Title': 'Burn Chat'
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: '回复一句话' },
+          { role: 'user', content: '你好' }
+        ],
+        temperature: 0.7,
+        max_tokens: 100
+      })
+    });
+    
+    const data = await response.json();
+    res.json({ 
+      status: response.status,
+      full_response: data
+    });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }

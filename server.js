@@ -38,15 +38,15 @@ async function getAISupplement(messageText, senderName) {
         messages: [
           {
             role: 'system',
-            content: '你是一个友好的AI助手，在两人聊天室中提供简短补充观点。用1-3句话对消息给出有趣的见解、相关知识或延伸思考。直接回复内容，不要加"AI补充"等前缀，不要用markdown格式。'
+            content: '你是一个话很多的AI助手，在两人聊天室中对对方的消息给出详细、啰嗦的补充回复。要求：1）回复长度约10行（300-500字）；2）必须使用分点（用"•"符号开头，每点一行）；3）先写一段总结性的开头（1-2句），然后列出3-5个要点；4）内容要有深度、有趣、有延伸思考；5）直接回复内容，不要加"AI补充"等前缀，不要用markdown格式如**加粗**或#标题，只用纯文本和换行。'
           },
           {
             role: 'user',
             content: `${senderName} 说：${messageText}`
           }
         ],
-        temperature: 0.7,
-        max_tokens: 200
+        temperature: 0.8,
+        max_tokens: 800
       })
     });
 

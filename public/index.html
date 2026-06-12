@@ -3,63 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Burn Chat - 阅后即焚</title>
+  <title>Burn Chat</title>
   <script src="/socket.io/socket.io.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --bg: #111113;
-      --surface: #18181b;
-      --surface2: #27272a;
-      --bubble: #2c2c30;
-      --accent: #ef4444;
-      --accent-glow: rgba(239, 68, 68, 0.25);
-      --text: #fafafa;
-      --text-secondary: #a1a1aa;
-      --text-dim: #71717a;
-      --border: #2e2e32;
-      --green: #22c55e;
+      --bg: #F8F9FB;
+      --surface: #FFFFFF;
+      --text: #1a1a1a;
+      --text-secondary: #6b6b6b;
+      --text-dim: #999;
+      --border: #e5e5e5;
+      --green: #10a37f;
+      --purple: #7c5cfc;
+      --purple-light: #B7A4FF;
+      --purple-bg: #F6F0FF;
+      --purple-send: #7c5cfc;
+      --purple-hover: #6a4de0;
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Söhne', 'Segoe UI', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
       height: 100dvh;
       overflow: hidden;
+      position: relative;
     }
 
-    /* Screens */
-    .screen { display: none; height: 100dvh; }
+    /* Subtle watermark texture */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ============ Screens ============ */
+    .screen { display: none; height: 100dvh; position: relative; z-index: 1; }
     .screen.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
 
-    /* Home screen */
-    #home-screen {
-      gap: 28px;
-      padding: 24px;
+    /* ============ Home Screen ============ */
+    #home-screen { gap: 24px; padding: 24px; }
+
+    .home-logo {
+      width: 56px; height: 56px;
+      background: var(--green);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
     }
 
-    .logo { font-size: 52px; margin-bottom: 8px; }
+    .home-logo svg { width: 32px; height: 32px; color: white; }
 
-    h1 {
-      font-size: 30px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-
-    .subtitle {
-      color: var(--text-dim);
-      font-size: 14px;
-      margin-top: 6px;
-    }
+    #home-screen h1 { font-size: 28px; font-weight: 600; color: var(--text); }
+    #home-screen .subtitle { color: var(--text-secondary); font-size: 15px; }
 
     .input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      width: 100%;
-      max-width: 320px;
+      display: flex; flex-direction: column; gap: 12px;
+      width: 100%; max-width: 360px;
     }
 
     input {
@@ -73,307 +77,218 @@
       transition: border-color 0.2s;
     }
 
-    input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-
-    input::placeholder { color: var(--text-dim); }
+    input:focus { border-color: var(--purple-light); }
+    input::placeholder { color: #bbb; }
 
     .btn {
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 12px;
-      padding: 14px 24px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      width: 100%;
+      background: var(--purple);
+      color: white; border: none; border-radius: 12px;
+      padding: 14px 24px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; width: 100%;
     }
 
-    .btn:hover { opacity: 0.9; transform: translateY(-1px); }
-    .btn:active { transform: translateY(0); }
+    .btn:hover { background: var(--purple-hover); }
 
     .btn-ghost {
+      background: transparent; border: 1px solid var(--border); color: var(--text-secondary);
+    }
+
+    .btn-ghost:hover { border-color: var(--text-dim); background: rgba(0,0,0,0.02); }
+
+    .divider { color: var(--text-dim); font-size: 13px; text-align: center; }
+
+    /* ============ Chat Screen ============ */
+    #chat-screen { justify-content: flex-start; }
+    #chat-screen.active { display: flex; flex-direction: column; align-items: stretch; }
+
+    /* Top bar */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: relative; z-index: 10;
+    }
+
+    .topbar-left { display: flex; align-items: center; gap: 10px; }
+
+    .topbar-logo {
+      width: 28px; height: 28px;
+      background: var(--green);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .topbar-logo svg { width: 16px; height: 16px; color: white; }
+
+    .topbar-model {
+      font-size: 15px; font-weight: 600; color: var(--text);
+    }
+
+    .topbar-online {
+      font-size: 13px; color: var(--text-secondary);
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    .topbar-online::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .topbar-countdown {
+      font-size: 13px; color: #e74c3c; font-weight: 500;
+      margin-left: 16px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .topbar-countdown.urgent { animation: flash 0.5s infinite; }
+    @keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+    .topbar-btn {
       background: transparent;
       border: 1px solid var(--border);
-      color: var(--text-secondary);
-    }
-
-    .btn-ghost:hover { border-color: var(--text-dim); }
-
-    .divider {
-      color: var(--text-dim);
+      border-radius: 8px;
+      padding: 6px 14px;
       font-size: 13px;
-      margin: 2px 0;
-      text-align: center;
-    }
-
-    /* ============ Chat screen ============ */
-    #chat-screen { justify-content: flex-start; }
-
-    #chat-screen.active {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .chat-wrapper {
-      display: flex;
-      flex-direction: column;
-      width: 100%;
-      max-width: 800px;
-      height: 100%;
-    }
-
-    /* Header */
-    .chat-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 24px;
-      background: var(--bg);
-    }
-
-    .chat-header-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    .room-id {
-      font-size: 14px;
       color: var(--text-secondary);
-      font-family: 'SF Mono', 'Fira Code', monospace;
-      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
     }
 
-    .countdown {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--accent);
-      font-family: 'SF Mono', 'Fira Code', monospace;
-    }
-
-    .countdown.urgent {
-      animation: flash 0.5s infinite;
-    }
-
-    @keyframes flash {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
-    }
+    .topbar-btn:hover { background: rgba(0,0,0,0.04); border-color: #ccc; }
 
     /* Messages area */
-    .messages {
+    .messages-area {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 24px;
+      padding: 0;
+    }
+
+    .messages-inner {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 24px 20px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 0;
     }
 
-    /* Message row with avatar */
-    .message-row {
+    /* AI message (their side) */
+    .msg-ai {
       display: flex;
-      align-items: flex-end;
-      gap: 10px;
-      max-width: 70%;
+      gap: 16px;
+      padding: 20px 0;
+      border-bottom: 1px solid #eee;
     }
 
-    .message-row.mine {
-      align-self: flex-end;
-      flex-direction: row-reverse;
-    }
-
-    .message-row.theirs {
-      align-self: flex-start;
-    }
-
-    .avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      background: var(--surface2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 15px;
-      font-weight: 600;
-      flex-shrink: 0;
-      color: var(--text-secondary);
-    }
-
-    .avatar.mine {
-      background: var(--surface2);
-    }
-
-    .message {
-      padding: 10px 16px;
-      border-radius: 18px;
-      font-size: 15px;
-      line-height: 1.5;
-      word-wrap: break-word;
-      background: var(--bubble);
-      color: var(--text);
-    }
-
-    .message.mine {
-      background: var(--bubble);
-      border-bottom-right-radius: 6px;
-    }
-
-    .message.theirs {
-      border-bottom-left-radius: 6px;
-    }
-
-    .message.system {
-      align-self: center;
-      background: transparent;
-      color: var(--text-dim);
-      font-size: 12px;
-      padding: 6px 0;
-      text-align: center;
-      line-height: 1.6;
-    }
-
-    /* Input area */
-    .chat-input {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 24px 32px 24px;
-      background: var(--bg);
-    }
-
-    .chat-input input {
-      flex: 1;
-      border-radius: 999px;
-      padding: 13px 22px;
-      background: var(--surface2);
-      border: none;
-      font-size: 15px;
-    }
-
-    .chat-input input:focus {
-      box-shadow: none;
-      background: var(--surface2);
-      outline: none;
-    }
-
-    .send-btn {
-      width: 44px;
-      height: 44px;
+    .msg-ai-avatar {
+      width: 32px; height: 32px;
+      background: var(--green);
       border-radius: 50%;
-      background: var(--surface2);
-      border: none;
-      color: var(--text-secondary);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s;
+      display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
+      margin-top: 2px;
     }
 
-    .send-btn:hover {
-      background: var(--text-secondary);
-      color: var(--bg);
-    }
+    .msg-ai-avatar svg { width: 18px; height: 18px; color: white; }
 
-    .send-btn svg {
-      width: 18px;
-      height: 18px;
-    }
+    .msg-ai-content { flex: 1; min-width: 0; }
 
-    /* ============ Burned screen ============ */
-    #burned-screen { gap: 16px; }
-
-    .burn-icon {
-      font-size: 80px;
-      animation: burnAnim 2s ease-in-out;
-    }
-
-    @keyframes burnAnim {
-      0% { transform: scale(0.5); opacity: 0; }
-      50% { transform: scale(1.3); }
-      100% { transform: scale(1); opacity: 1; }
-    }
-
-    .burn-text {
-      font-size: 24px;
-      font-weight: 700;
-      color: var(--accent);
-    }
-
-    .burn-sub {
-      color: var(--text-dim);
-      font-size: 14px;
-    }
-
-    /* ============ Nickname Modal ============ */
-    .nickname-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: var(--bg);
-      z-index: 200;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-    }
-
-    .nickname-overlay.active { display: flex; }
-
-    .nickname-box {
-      text-align: center;
-      max-width: 320px;
-      width: 100%;
-    }
-
-    .nickname-box h2 {
-      font-size: 22px;
+    .msg-ai-model {
+      font-size: 13px; font-weight: 600; color: var(--text);
       margin-bottom: 6px;
     }
 
-    .nickname-box p {
+    .msg-ai-text {
+      font-size: 15px; line-height: 1.7; color: var(--text);
+      word-wrap: break-word;
+    }
+
+    /* AI message toolbar */
+    .msg-toolbar {
+      display: flex; align-items: center; gap: 2px;
+      margin-top: 10px;
+    }
+
+    .msg-toolbar-btn {
+      width: 30px; height: 30px;
+      border: none; background: transparent;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: #bbb;
+      transition: all 0.15s;
+    }
+
+    .msg-toolbar-btn:hover { background: rgba(0,0,0,0.06); color: #888; }
+
+    .msg-toolbar-btn svg { width: 16px; height: 16px; }
+
+    .msg-eval {
+      display: flex; gap: 6px; margin-left: 12px;
+    }
+
+    .msg-eval-btn {
+      border: 1px solid #e0e0e0;
+      background: transparent;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: #999;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .msg-eval-btn:hover { background: rgba(0,0,0,0.04); border-color: #ccc; }
+
+    /* User message (my side) */
+    .msg-user {
+      display: flex;
+      justify-content: flex-end;
+      padding: 16px 0;
+    }
+
+    .msg-user-bubble {
+      background: var(--purple-bg);
+      border-radius: 16px;
+      padding: 12px 18px;
+      max-width: 520px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text);
+      word-wrap: break-word;
+    }
+
+    /* System message */
+    .msg-system {
+      text-align: center;
+      font-size: 13px;
       color: var(--text-dim);
+      padding: 12px 0;
+    }
+
+    /* Waiting */
+    .waiting-text {
+      text-align: center;
       font-size: 14px;
-      margin-bottom: 20px;
+      color: var(--text-dim);
+      padding: 60px 20px;
     }
 
-    .nickname-box input {
-      width: 100%;
-      margin-bottom: 14px;
-    }
-
-    /* ============ Share Banner ============ */
+    /* Share banner */
     .share-banner {
       display: none;
       align-items: center;
       justify-content: space-between;
-      padding: 10px 24px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      background: #F0EDFF;
+      border-bottom: 1px solid #e5e0f5;
     }
 
     .share-banner.active { display: flex; }
@@ -389,77 +304,193 @@
     }
 
     .share-banner-btn {
-      background: transparent;
-      border: 1px solid var(--border);
+      background: var(--purple);
+      border: none;
       border-radius: 8px;
-      padding: 6px 14px;
-      color: var(--text-secondary);
+      padding: 5px 14px;
+      color: white;
       font-size: 13px;
       cursor: pointer;
       white-space: nowrap;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
-    .share-banner-btn:hover {
-      border-color: var(--text-dim);
+    .share-banner-btn:hover { background: var(--purple-hover); }
+
+    /* ============ Input area ============ */
+    .input-area {
+      padding: 0 20px 28px;
+      background: var(--bg);
+    }
+
+    .input-card {
+      max-width: 780px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1.5px solid var(--purple-light);
+      border-radius: 24px;
+      padding: 14px 18px 10px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .input-card textarea {
+      width: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      font-size: 15px;
+      line-height: 1.5;
       color: var(--text);
+      background: transparent;
+      font-family: inherit;
+      padding: 4px 0;
+      max-height: 120px;
     }
 
-    /* ============ Waiting ============ */
-    .waiting-text {
-      color: var(--text-dim);
-      font-size: 13px;
-      text-align: center;
-      padding: 40px 20px;
+    .input-card textarea::placeholder { color: #bbb; }
+
+    .input-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 6px;
     }
+
+    .input-left-btns {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .input-icon-btn {
+      width: 34px; height: 34px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: #bbb;
+      transition: all 0.15s;
+    }
+
+    .input-icon-btn:hover { background: rgba(0,0,0,0.06); color: #888; }
+    .input-icon-btn svg { width: 18px; height: 18px; }
+
+    .send-circle {
+      width: 34px; height: 34px;
+      background: var(--purple-send);
+      border: none;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: white;
+    }
+
+    .send-circle:hover { background: var(--purple-hover); transform: scale(1.05); }
+    .send-circle svg { width: 16px; height: 16px; }
+
+    /* ============ Burned screen ============ */
+    #burned-screen { gap: 16px; }
+
+    .burn-icon { font-size: 80px; animation: burnAnim 1.5s ease-out; }
+    @keyframes burnAnim { 0%{transform:scale(0.5);opacity:0} 50%{transform:scale(1.2)} 100%{transform:scale(1);opacity:1} }
+    .burn-text { font-size: 24px; font-weight: 700; color: #e74c3c; }
+    .burn-sub { color: var(--text-dim); font-size: 14px; }
+
+    /* ============ Nickname Modal ============ */
+    .nickname-overlay {
+      display: none; position: fixed; inset: 0;
+      background: var(--bg); z-index: 200;
+      align-items: center; justify-content: center; padding: 24px;
+    }
+
+    .nickname-overlay.active { display: flex; }
+
+    .nickname-box { text-align: center; max-width: 360px; width: 100%; }
+    .nickname-box h2 { font-size: 22px; margin-bottom: 6px; font-weight: 600; }
+    .nickname-box p { color: var(--text-secondary); font-size: 14px; margin-bottom: 20px; }
+    .nickname-box input { width: 100%; margin-bottom: 14px; }
 
     /* Scrollbar */
-    .messages::-webkit-scrollbar { width: 4px; }
-    .messages::-webkit-scrollbar-track { background: transparent; }
-    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .messages-area::-webkit-scrollbar { width: 5px; }
+    .messages-area::-webkit-scrollbar-track { background: transparent; }
+    .messages-area::-webkit-scrollbar-thumb { background: #ddd; border-radius: 3px; }
+    .messages-area::-webkit-scrollbar-thumb:hover { background: #ccc; }
   </style>
 </head>
 <body>
   <!-- Home Screen -->
   <div id="home-screen" class="screen active">
-    <div class="logo">🔥</div>
+    <div class="home-logo">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7629a.7759.7759 0 0 0-.7854 0L9.409 9.2484V6.916a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.4757-3.4537l-.142.0805L8.804 5.459a.7948.7948 0 0 0-.3927.6813zm1.0974-2.3616l2.603-1.5018 2.6032 1.5018v3.0036l-2.6032 1.5018-2.603-1.5018z"/></svg>
+    </div>
     <h1>Burn Chat</h1>
     <p class="subtitle">阅后即焚 · 30分钟自动销毁</p>
     <div class="input-group">
       <input id="nickname-input" type="text" placeholder="你的昵称" maxlength="12">
       <button class="btn" onclick="createRoom()">创建私密房间</button>
       <div class="divider">— 或输入房间号加入 —</div>
-      <input id="room-input" type="text" placeholder="房间号" maxlength="8">
+      <input id="room-input" type="text" placeholder="房间号" maxlength="20">
       <button class="btn btn-ghost" onclick="joinExistingRoom()">加入房间</button>
     </div>
   </div>
 
   <!-- Chat Screen -->
   <div id="chat-screen" class="screen">
-    <div class="chat-wrapper">
-      <div class="chat-header">
-        <div class="chat-header-left">
-          <div class="status-dot"></div>
-          <span class="room-id" id="display-room-id"></span>
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7629a.7759.7759 0 0 0-.7854 0L9.409 9.2484V6.916a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.4757-3.4537l-.142.0805L8.804 5.459a.7948.7948 0 0 0-.3927.6813zm1.0974-2.3616l2.603-1.5018 2.6032 1.5018v3.0036l-2.6032 1.5018-2.603-1.5018z"/></svg>
         </div>
-        <div class="countdown" id="countdown">
-          <span id="countdown-text">等待第一条消息...</span>
-        </div>
+        <span class="topbar-model" id="display-room-id">burn-chat</span>
+        <span class="topbar-online">在线：<span id="online-count">1</span> 人</span>
+        <span class="topbar-countdown" id="countdown"><span id="countdown-text"></span></span>
       </div>
-      <div class="share-banner" id="share-banner">
-        <span class="share-banner-text" id="share-banner-link"></span>
-        <button class="share-banner-btn" onclick="copyLink()">复制链接</button>
+      <div class="topbar-right">
+        <button class="topbar-btn" onclick="copyShareLink()">复制链接</button>
+        <button class="topbar-btn" id="open-infinite-btn">打开无限</button>
       </div>
-      <div class="messages" id="messages">
+    </div>
+
+    <!-- Share banner -->
+    <div class="share-banner" id="share-banner">
+      <span class="share-banner-text" id="share-banner-link"></span>
+      <button class="share-banner-btn" onclick="copyLink()">复制链接</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-area">
+      <div class="messages-inner" id="messages">
         <div class="waiting-text" id="waiting-hint">等待对方加入...</div>
       </div>
-      <div class="chat-input">
-        <input id="msg-input" type="text" placeholder="输入消息..." autocomplete="off">
-        <button class="send-btn" onclick="sendMessage()">
-          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-            <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94l18.04-7.94a.75.75 0 000-1.38L3.478 2.405z"/>
-          </svg>
-        </button>
+    </div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-card">
+        <textarea id="msg-input" rows="1" placeholder="让我和你一起探索" autocomplete="off"></textarea>
+        <div class="input-bottom">
+          <div class="input-left-btns">
+            <!-- Plus -->
+            <button class="input-icon-btn" title="附件">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <!-- Globe -->
+            <button class="input-icon-btn" title="搜索">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </button>
+            <!-- Atom -->
+            <button class="input-icon-btn" title="探索">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(0 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/></svg>
+            </button>
+          </div>
+          <button class="send-circle" onclick="sendMessage()">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94l18.04-7.94a.75.75 0 000-1.38L3.478 2.405z"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -496,21 +527,27 @@
     let myNickname = '';
     let wasConnected = false;
     let pendingRoomId = null;
+    let shareLink = '';
+    let onlineUsers = 1;
 
-    // Check if URL has a room — show nickname modal
     const pathMatch = window.location.pathname.match(/^\/room\/(.+)$/i);
     if (pathMatch) {
       pendingRoomId = decodeURIComponent(pathMatch[1]);
       document.getElementById('nickname-overlay').classList.add('active');
     }
 
-    // Enter key on nickname input
     document.getElementById('link-nickname-input').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') joinFromLink();
     });
 
+    // Auto-resize textarea
+    const textarea = document.getElementById('msg-input');
+    textarea.addEventListener('input', () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    });
+
     socket.on('connect', () => {
-      // If we were previously in a room, try to rejoin
       if (currentRoomId && myUserId && wasConnected) {
         socket.emit('join-room', {
           roomId: currentRoomId,
@@ -540,24 +577,21 @@
       currentRoomId = roomId;
       const encodedId = encodeURIComponent(roomId);
       history.pushState(null, '', `/room/${encodedId}`);
-      // Show share banner in chat
-      const link = `${window.location.origin}/room/${encodedId}`;
-      document.getElementById('share-banner-link').textContent = link;
+      shareLink = `${window.location.origin}/room/${encodedId}`;
+      document.getElementById('share-banner-link').textContent = shareLink;
       document.getElementById('share-banner').classList.add('active');
       joinRoom(roomId);
     }
 
     function joinFromLink() {
       const name = document.getElementById('link-nickname-input').value.trim();
-      if (!name) {
-        document.getElementById('link-nickname-input').focus();
-        return;
-      }
+      if (!name) { document.getElementById('link-nickname-input').focus(); return; }
       myNickname = name;
       document.getElementById('nickname-overlay').classList.remove('active');
       currentRoomId = pendingRoomId;
       const encodedId = encodeURIComponent(pendingRoomId);
       history.replaceState(null, '', `/room/${encodedId}`);
+      shareLink = `${window.location.origin}/room/${encodedId}`;
       joinRoom(pendingRoomId);
     }
 
@@ -565,7 +599,7 @@
       const roomId = document.getElementById('room-input').value.trim();
       if (!roomId) return;
       currentRoomId = roomId;
-      history.pushState(null, '', `/room/${roomId}`);
+      history.pushState(null, '', `/room/${encodeURIComponent(roomId)}`);
       joinRoom(roomId);
     }
 
@@ -577,9 +611,19 @@
     }
 
     function copyLink() {
-      const link = document.getElementById('share-banner-link').textContent;
-      navigator.clipboard.writeText(link).then(() => {
+      navigator.clipboard.writeText(shareLink).then(() => {
         const btn = document.querySelector('.share-banner-btn');
+        btn.textContent = '已复制 ✓';
+        setTimeout(() => { btn.textContent = '复制链接'; }, 2000);
+      });
+    }
+
+    function copyShareLink() {
+      if (!shareLink) {
+        shareLink = window.location.href;
+      }
+      navigator.clipboard.writeText(shareLink).then(() => {
+        const btn = document.querySelector('.topbar-right .topbar-btn');
         btn.textContent = '已复制 ✓';
         setTimeout(() => { btn.textContent = '复制链接'; }, 2000);
       });
@@ -591,24 +635,32 @@
       if (!text) return;
       socket.emit('send-message', { text });
       input.value = '';
+      input.style.height = 'auto';
       input.focus();
     }
 
     document.getElementById('msg-input').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.isComposing) sendMessage();
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+        e.preventDefault();
+        sendMessage();
+      }
     });
 
     // Socket events
     socket.on('user-joined', ({ name, userCount }) => {
       addSystemMessage(`${name} 加入了房间`);
+      onlineUsers = userCount;
+      document.getElementById('online-count').textContent = userCount;
       if (userCount >= 2) {
         document.getElementById('waiting-hint').style.display = 'none';
         document.getElementById('share-banner').classList.remove('active');
       }
     });
 
-    socket.on('user-left', ({ name }) => {
+    socket.on('user-left', ({ name, userCount }) => {
       addSystemMessage(`${name} 离开了房间`);
+      onlineUsers = userCount;
+      document.getElementById('online-count').textContent = userCount;
     });
 
     socket.on('user-disconnected', ({ name }) => {
@@ -617,6 +669,8 @@
 
     socket.on('user-reconnected', ({ name, userCount }) => {
       addSystemMessage(`${name} 已重新连接`);
+      onlineUsers = userCount;
+      document.getElementById('online-count').textContent = userCount;
       if (userCount >= 2) {
         document.getElementById('waiting-hint').style.display = 'none';
         document.getElementById('share-banner').classList.remove('active');
@@ -628,13 +682,8 @@
       addMessage(msg.text, isMine, msg.sender);
     });
 
-    socket.on('countdown-started', ({ duration }) => {
-      startCountdown(duration);
-    });
-
-    socket.on('countdown-sync', ({ remaining }) => {
-      startCountdown(remaining);
-    });
+    socket.on('countdown-started', ({ duration }) => { startCountdown(duration); });
+    socket.on('countdown-sync', ({ remaining }) => { startCountdown(remaining); });
 
     socket.on('room-burned', () => {
       clearInterval(countdownInterval);
@@ -646,37 +695,79 @@
       showScreen('home-screen');
     });
 
+    // Message rendering
     function addMessage(text, isMine, senderName) {
-      // Hide waiting hint on first message
       const hint = document.getElementById('waiting-hint');
       if (hint && hint.style.display !== 'none') hint.style.display = 'none';
 
-      const row = document.createElement('div');
-      row.className = `message-row ${isMine ? 'mine' : 'theirs'}`;
-
-      const avatar = document.createElement('div');
-      avatar.className = `avatar${isMine ? ' mine' : ''}`;
-      avatar.textContent = (senderName || '?')[0].toUpperCase();
-
-      const bubble = document.createElement('div');
-      bubble.className = `message ${isMine ? 'mine' : 'theirs'}`;
-      bubble.textContent = text;
-
-      row.appendChild(avatar);
-      row.appendChild(bubble);
-
       const container = document.getElementById('messages');
-      container.appendChild(row);
-      container.scrollTop = container.scrollHeight;
+
+      if (isMine) {
+        // User message — right aligned purple bubble
+        const div = document.createElement('div');
+        div.className = 'msg-user';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-user-bubble';
+        bubble.textContent = text;
+        div.appendChild(bubble);
+        container.appendChild(div);
+      } else {
+        // AI message — left side with avatar, no bubble
+        const div = document.createElement('div');
+        div.className = 'msg-ai';
+
+        // Avatar
+        const avatar = document.createElement('div');
+        avatar.className = 'msg-ai-avatar';
+        avatar.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.8956zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7629a.7759.7759 0 0 0-.7854 0L9.409 9.2484V6.916a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.4757-3.4537l-.142.0805L8.804 5.459a.7948.7948 0 0 0-.3927.6813zm1.0974-2.3616l2.603-1.5018 2.6032 1.5018v3.0036l-2.6032 1.5018-2.603-1.5018z"/></svg>';
+
+        // Content
+        const content = document.createElement('div');
+        content.className = 'msg-ai-content';
+
+        const model = document.createElement('div');
+        model.className = 'msg-ai-model';
+        model.textContent = senderName || 'Burn Chat';
+
+        const textDiv = document.createElement('div');
+        textDiv.className = 'msg-ai-text';
+        textDiv.textContent = text;
+
+        content.appendChild(model);
+        content.appendChild(textDiv);
+
+        // Toolbar
+        const toolbar = document.createElement('div');
+        toolbar.className = 'msg-toolbar';
+        toolbar.innerHTML = `
+          <button class="msg-toolbar-btn" title="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg></button>
+          <button class="msg-toolbar-btn" title="刷新"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg></button>
+          <button class="msg-toolbar-btn" title="点赞"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg></button>
+          <button class="msg-toolbar-btn" title="点踩"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3zm7-13h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg></button>
+          <div class="msg-eval">
+            <button class="msg-eval-btn">糟糕</button>
+            <button class="msg-eval-btn">一般</button>
+            <button class="msg-eval-btn">优秀</button>
+          </div>
+        `;
+        content.appendChild(toolbar);
+
+        div.appendChild(avatar);
+        div.appendChild(content);
+        container.appendChild(div);
+      }
+
+      const area = document.querySelector('.messages-area');
+      area.scrollTop = area.scrollHeight;
     }
 
     function addSystemMessage(text) {
       const div = document.createElement('div');
-      div.className = 'message system';
+      div.className = 'msg-system';
       div.textContent = text;
-      const container = document.getElementById('messages');
-      container.appendChild(div);
-      container.scrollTop = container.scrollHeight;
+      document.getElementById('messages').appendChild(div);
+      const area = document.querySelector('.messages-area');
+      area.scrollTop = area.scrollHeight;
     }
 
     function startCountdown(durationMs) {
@@ -690,15 +781,12 @@
       const remaining = Math.max(0, countdownEnd - Date.now());
       const minutes = Math.floor(remaining / 60000);
       const seconds = Math.floor((remaining % 60000) / 1000);
-      const el = document.getElementById('countdown-text');
-      el.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      document.getElementById('countdown-text').textContent =
+        `剩余 ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
-      const container = document.getElementById('countdown');
-      if (remaining < 60000) {
-        container.classList.add('urgent');
-      } else {
-        container.classList.remove('urgent');
-      }
+      const el = document.getElementById('countdown');
+      if (remaining < 60000) el.classList.add('urgent');
+      else el.classList.remove('urgent');
 
       if (remaining <= 0) clearInterval(countdownInterval);
     }

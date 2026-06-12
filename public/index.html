@@ -598,9 +598,8 @@
     function joinExistingRoom() {
       const roomId = document.getElementById('room-input').value.trim();
       if (!roomId) return;
-      currentRoomId = roomId;
-      history.pushState(null, '', `/room/${encodeURIComponent(roomId)}`);
-      joinRoom(roomId);
+      pendingRoomId = roomId;
+      document.getElementById('nickname-overlay').classList.add('active');
     }
 
     function joinRoom(roomId) {

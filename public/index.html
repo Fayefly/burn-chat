@@ -211,6 +211,39 @@
       word-wrap: break-word;
     }
 
+    /* AI Supplement */
+    .msg-supplement {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #f8f4ff 0%, #f0f8ff 100%);
+      border-left: 3px solid var(--purple-light);
+      border-radius: 0 12px 12px 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #555;
+    }
+
+    .msg-supplement-label {
+      font-size: 11px;
+      color: var(--purple);
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .msg-supplement-label::before {
+      content: '✨';
+    }
+
+    /* User message supplement */
+    .msg-user .msg-supplement {
+      margin-top: 8px;
+      margin-left: auto;
+      max-width: 520px;
+    }
+
     /* AI message toolbar */
     .msg-toolbar {
       display: flex; align-items: center; gap: 2px;
@@ -679,7 +712,36 @@
 
     socket.on('new-message', (msg) => {
       const isMine = msg.senderId === myUserId;
-      addMessage(msg.text, isMine, msg.sender);
+      addMessage(msg.text, isMine, msg.sender, msg.id);
+    });
+
+    socket.on('ai-supplement', ({ forMessageId, text }) => {
+      const msgEl = document.querySelector(`[data-msg-id="${forMessageId}"]`);
+      if (!msgEl) return;
+
+      const supplement = document.createElement('div');
+      supplement.className = 'msg-supplement';
+
+      const label = document.createElement('div');
+      label.className = 'msg-supplement-label';
+      label.textContent = 'AI 补充';
+
+      const content = document.createElement('div');
+      content.textContent = text;
+
+      supplement.appendChild(label);
+      supplement.appendChild(content);
+
+      // For AI messages, append to content area; for user messages, append directly
+      const contentArea = msgEl.querySelector('.msg-ai-content');
+      if (contentArea) {
+        contentArea.appendChild(supplement);
+      } else {
+        msgEl.appendChild(supplement);
+      }
+
+      const area = document.querySelector('.messages-area');
+      area.scrollTop = area.scrollHeight;
     });
 
     socket.on('countdown-started', ({ duration }) => { startCountdown(duration); });
@@ -696,7 +758,7 @@
     });
 
     // Message rendering
-    function addMessage(text, isMine, senderName) {
+    function addMessage(text, isMine, senderName, messageId) {
       const hint = document.getElementById('waiting-hint');
       if (hint && hint.style.display !== 'none') hint.style.display = 'none';
 
@@ -706,6 +768,7 @@
         // User message — right aligned purple bubble
         const div = document.createElement('div');
         div.className = 'msg-user';
+        if (messageId) div.dataset.msgId = messageId;
         const bubble = document.createElement('div');
         bubble.className = 'msg-user-bubble';
         bubble.textContent = text;
@@ -715,6 +778,7 @@
         // AI message — left side with avatar, no bubble
         const div = document.createElement('div');
         div.className = 'msg-ai';
+        if (messageId) div.dataset.msgId = messageId;
 
         // Avatar
         const avatar = document.createElement('div');

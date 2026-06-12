@@ -18,6 +18,45 @@ const rooms = new Map();
 const BURN_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const RECONNECT_GRACE = 60 * 1000; // 60 seconds grace period for reconnect
 
+// AI Supplement via Groq (free API)
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = 'llama-3.1-8b-instant';
+
+async function getAISupplement(messageText, senderName) {
+  if (!GROQ_API_KEY) return null;
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: '你是一个友好的AI助手，在两人聊天室中提供简短补充观点。用1-3句话对消息给出有趣的见解、相关知识或延伸思考。直接回复内容，不要加"AI补充"等前缀，不要用markdown格式。'
+          },
+          {
+            role: 'user',
+            content: `${senderName} 说：${messageText}`
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 200
+      })
+    });
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || null;
+  } catch (err) {
+    console.error('Groq API error:', err.message);
+    return null;
+  }
+}
+
 // Chinese idioms for room naming
 const IDIOMS = [
   '风花雪月', '高山流水', '天涯若邻', '一见如故', '心有灵犀',
@@ -232,6 +271,18 @@ io.on('connection', (socket) => {
     }
 
     io.to(currentRoom).emit('new-message', msg);
+
+    // Generate AI supplement asynchronously
+    if (GROQ_API_KEY) {
+      getAISupplement(text, nickname).then(supplement => {
+        if (supplement) {
+          io.to(currentRoom).emit('ai-supplement', {
+            forMessageId: msg.id,
+            text: supplement
+          });
+        }
+      });
+    }
   });
 
   socket.on('disconnect', () => {

@@ -18,22 +18,24 @@ const rooms = new Map();
 const BURN_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const RECONNECT_GRACE = 60 * 1000; // 60 seconds grace period for reconnect
 
-// AI Supplement via Groq (free API)
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = 'llama-3.1-8b-instant';
+// AI Supplement via OpenRouter (free models)
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const AI_MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
 
 async function getAISupplement(messageText, senderName) {
-  if (!GROQ_API_KEY) return null;
+  if (!OPENROUTER_API_KEY) return null;
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://chatburn.up.railway.app',
+        'X-Title': 'Burn Chat'
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: AI_MODEL,
         messages: [
           {
             role: 'system',
@@ -52,7 +54,7 @@ async function getAISupplement(messageText, senderName) {
     const data = await response.json();
     return data.choices?.[0]?.message?.content || null;
   } catch (err) {
-    console.error('Groq API error:', err.message);
+    console.error('OpenRouter API error:', err.message);
     return null;
   }
 }
@@ -273,7 +275,7 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('new-message', msg);
 
     // Generate AI supplement asynchronously
-    if (GROQ_API_KEY) {
+    if (OPENROUTER_API_KEY) {
       getAISupplement(text, nickname).then(supplement => {
         if (supplement) {
           io.to(currentRoom).emit('ai-supplement', {

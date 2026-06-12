@@ -52,9 +52,15 @@ async function getAISupplement(messageText, senderName) {
     });
 
     const data = await response.json();
+    
+    if (data.error) {
+      console.error('OpenRouter API error:', JSON.stringify(data.error));
+      return null;
+    }
+    
     return data.choices?.[0]?.message?.content || null;
   } catch (err) {
-    console.error('OpenRouter API error:', err.message);
+    console.error('OpenRouter fetch error:', err.message);
     return null;
   }
 }
@@ -103,6 +109,19 @@ app.get('/api/health', (req, res) => {
     ai_enabled: !!OPENROUTER_API_KEY,
     ai_model: AI_MODEL
   });
+});
+
+// Debug: test AI connection
+app.get('/api/test-ai', async (req, res) => {
+  if (!OPENROUTER_API_KEY) {
+    return res.json({ error: 'OPENROUTER_API_KEY not set' });
+  }
+  try {
+    const result = await getAISupplement('你好', '测试');
+    res.json({ success: true, result: result });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
 });
 
 // Check room status

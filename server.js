@@ -18,21 +18,19 @@ const rooms = new Map();
 const BURN_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const RECONNECT_GRACE = 60 * 1000; // 60 seconds grace period for reconnect
 
-// AI Supplement via OpenRouter (free models)
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const AI_MODEL = 'qwen/qwen-2.5-7b-instruct:free';
+// AI Supplement via DeepSeek
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
+const AI_MODEL = 'deepseek-chat';
 
 async function getAISupplement(messageText, senderName) {
-  if (!OPENROUTER_API_KEY) return null;
+  if (!DEEPSEEK_API_KEY) return null;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://chatburn.up.railway.app',
-        'X-Title': 'Burn Chat'
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         model: AI_MODEL,
@@ -54,13 +52,13 @@ async function getAISupplement(messageText, senderName) {
     const data = await response.json();
     
     if (data.error) {
-      console.error('OpenRouter API error:', JSON.stringify(data.error));
+      console.error('DeepSeek API error:', JSON.stringify(data.error));
       return null;
     }
     
     return data.choices?.[0]?.message?.content || null;
   } catch (err) {
-    console.error('OpenRouter fetch error:', err.message);
+    console.error('DeepSeek fetch error:', err.message);
     return null;
   }
 }
@@ -106,41 +104,19 @@ app.get('/api/create-room', (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    ai_enabled: !!OPENROUTER_API_KEY,
+    ai_enabled: !!DEEPSEEK_API_KEY,
     ai_model: AI_MODEL
   });
 });
 
 // Debug: test AI connection
 app.get('/api/test-ai', async (req, res) => {
-  if (!OPENROUTER_API_KEY) {
-    return res.json({ error: 'OPENROUTER_API_KEY not set' });
+  if (!DEEPSEEK_API_KEY) {
+    return res.json({ error: 'DEEPSEEK_API_KEY not set' });
   }
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://chatburn.up.railway.app',
-        'X-Title': 'Burn Chat'
-      },
-      body: JSON.stringify({
-        model: AI_MODEL,
-        messages: [
-          { role: 'system', content: '回复一句话' },
-          { role: 'user', content: '你好' }
-        ],
-        temperature: 0.7,
-        max_tokens: 100
-      })
-    });
-    
-    const data = await response.json();
-    res.json({ 
-      status: response.status,
-      full_response: data
-    });
+    const result = await getAISupplement('你好', '测试');
+    res.json({ success: true, result: result });
   } catch (err) {
     res.json({ success: false, error: err.message });
   }
@@ -325,7 +301,7 @@ io.on('connection', (socket) => {
     io.to(currentRoom).emit('new-message', msg);
 
     // Generate AI supplement asynchronously
-    if (OPENROUTER_API_KEY) {
+    if (DEEPSEEK_API_KEY) {
       getAISupplement(text, nickname).then(supplement => {
         if (supplement) {
           io.to(currentRoom).emit('ai-supplement', {

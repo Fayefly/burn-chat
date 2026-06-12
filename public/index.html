@@ -885,10 +885,15 @@
       supplement.className = 'msg-supplement';
       supplement.textContent = text;
 
-      // For AI messages, append to content area
+      // Insert supplement BEFORE the toolbar icons
       const contentArea = msgEl.querySelector('.msg-ai-content');
       if (contentArea) {
-        contentArea.appendChild(supplement);
+        const toolbar = contentArea.querySelector('.msg-toolbar');
+        if (toolbar) {
+          contentArea.insertBefore(supplement, toolbar);
+        } else {
+          contentArea.appendChild(supplement);
+        }
       }
 
       const area = document.querySelector('.messages-area');
